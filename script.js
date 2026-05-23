@@ -59,6 +59,7 @@ let callStartTime = null;
 let callTimerInterval = null;
 let currentSchoolUser = null;
 let isAuthenticated = false;
+let topicsLoaded = false;
 
 // WebRTC
 let localStream = null;
@@ -79,6 +80,19 @@ document.addEventListener('DOMContentLoaded', () => {
     monitorCSRStatus();
     updateAuthUI();
     
+    // Check for stored session
+    const storedInfo = sessionStorage.getItem('studentInfo');
+    if (storedInfo) {
+        try {
+            studentInfo = JSON.parse(storedInfo);
+            isAuthenticated = true;
+            updateAuthUI();
+            displayUserInfo();
+        } catch(e) {
+            sessionStorage.removeItem('studentInfo');
+        }
+    }
+    
     // Listen for auth state changes from school enrollment system
     schoolAuth.onAuthStateChanged((user) => {
         if (user) {
@@ -86,14 +100,470 @@ document.addEventListener('DOMContentLoaded', () => {
             isAuthenticated = true;
             loadStudentDataFromSchool(user);
         } else {
-            currentSchoolUser = null;
-            isAuthenticated = false;
-            studentInfo = null;
-            updateAuthUI();
-            displayUserInfo();
+            // Don't set to false if we have session data
+            if (!sessionStorage.getItem('studentInfo')) {
+                currentSchoolUser = null;
+                isAuthenticated = false;
+                studentInfo = null;
+                updateAuthUI();
+                displayUserInfo();
+            }
         }
     });
 });
+
+// ==================== IN-PAGE LOGIN MODAL ====================
+function showLoginModal() {
+    // Remove existing modal if any
+    const existingModal = document.getElementById('loginModalOverlay');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    const overlay = document.createElement('div');
+    overlay.id = 'loginModalOverlay';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.6);
+        z-index: 10000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        animation: fadeIn 0.3s ease;
+    `;
+    
+    overlay.innerHTML = `
+        <div style="
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            animation: slideUp 0.3s ease;
+        ">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <div style="
+                    width: 60px;
+                    height: 60px;
+                    background: linear-gradient(135deg, #667eea, #764ba2);
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    margin: 0 auto 15px;
+                ">
+                    <i class="fas fa-user-graduate" style="font-size: 28px; color: white;"></i>
+                </div>
+                <h3 style="margin: 0; color: #333;">School Portal Login</h3>
+                <p style="color: #666; font-size: 13px; margin: 5px 0 0;">Sign in with your Cousins University account</p>
+            </div>
+            
+            <div id="loginError" style="display: none; background: #f8d7da; color: #721c24; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-size: 13px; text-align: center;"></div>
+            
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; color: #555; font-weight: 600; font-size: 13px;">Email</label>
+                <input type="email" id="loginEmailInput" placeholder="your.email@example.com" style="
+                    width: 100%;
+                    padding: 12px 15px;
+                    border: 2px solid #dee2e6;
+                    border-radius: 10px;
+                    font-size: 14px;
+                    box-sizing: border-box;
+                    transition: border-color 0.3s;
+                " onfocus="this.style.borderColor='#1a73e8'" onblur="this.style.borderColor='#dee2e6'">
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 5px; color: #555; font-weight: 600; font-size: 13px;">Password</label>
+                <div style="position: relative;">
+                    <input type="password" id="loginPasswordInput" placeholder="Enter your password" style="
+                        width: 100%;
+                        padding: 12px 45px 12px 15px;
+                        border: 2px solid #dee2e6;
+                        border-radius: 10px;
+                        font-size: 14px;
+                        box-sizing: border-box;
+                        transition: border-color 0.3s;
+                    " onfocus="this.style.borderColor='#1a73e8'" onblur="this.style.borderColor='#dee2e6'">
+                    <button type="button" id="togglePasswordBtn" style="
+                        position: absolute;
+                        right: 10px;
+                        top: 50%;
+                        transform: translateY(-50%);
+                        background: none;
+                        border: none;
+                        color: #999;
+                        cursor: pointer;
+                        font-size: 16px;
+                        padding: 5px;
+                    "><i class="fas fa-eye"></i></button>
+                </div>
+            </div>
+            
+            <button id="loginSubmitBtn" style="
+                width: 100%;
+                padding: 12px;
+                background: #1a73e8;
+                color: white;
+                border: none;
+                border-radius: 10px;
+                font-size: 15px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.3s;
+                margin-bottom: 10px;
+            " onmouseover="this.style.background='#1557b0'" onmouseout="this.style.background='#1a73e8'">
+                <i class="fas fa-sign-in-alt"></i> Sign In
+            </button>
+            
+            <button id="loginCancelBtn" style="
+                width: 100%;
+                padding: 10px;
+                background: transparent;
+                color: #666;
+                border: 1px solid #dee2e6;
+                border-radius: 10px;
+                font-size: 14px;
+                cursor: pointer;
+                transition: all 0.3s;
+            " onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='transparent'">
+                Cancel
+            </button>
+            
+            <p style="text-align: center; margin-top: 15px; font-size: 12px; color: #999;">
+                Don't have an account? <a href="#" id="switchToRegisterLink" style="color: #1a73e8; text-decoration: none;">Register here</a>
+            </p>
+        </div>
+    `;
+    
+    document.body.appendChild(overlay);
+    
+    // Toggle password visibility
+    document.getElementById('togglePasswordBtn').addEventListener('click', () => {
+        const passwordInput = document.getElementById('loginPasswordInput');
+        const icon = document.querySelector('#togglePasswordBtn i');
+        if (passwordInput.type === 'password') {
+            passwordInput.type = 'text';
+            icon.className = 'fas fa-eye-slash';
+        } else {
+            passwordInput.type = 'password';
+            icon.className = 'fas fa-eye';
+        }
+    });
+    
+    // Login submit
+    document.getElementById('loginSubmitBtn').addEventListener('click', async () => {
+        const email = document.getElementById('loginEmailInput').value.trim();
+        const password = document.getElementById('loginPasswordInput').value;
+        const errorDiv = document.getElementById('loginError');
+        
+        if (!email || !password) {
+            errorDiv.style.display = 'block';
+            errorDiv.textContent = 'Please enter both email and password.';
+            return;
+        }
+        
+        const submitBtn = document.getElementById('loginSubmitBtn');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing in...';
+        
+        try {
+            await schoolAuth.signInWithEmailAndPassword(email, password);
+            // Auth state listener will handle the rest
+            overlay.remove();
+            showToast('Login successful!', 'success');
+        } catch (error) {
+            errorDiv.style.display = 'block';
+            let errorMsg = 'Login failed. Please try again.';
+            if (error.code === 'auth/user-not-found') {
+                errorMsg = 'No account found with this email.';
+            } else if (error.code === 'auth/wrong-password') {
+                errorMsg = 'Incorrect password.';
+            } else if (error.code === 'auth/invalid-email') {
+                errorMsg = 'Invalid email address.';
+            } else if (error.code === 'auth/too-many-requests') {
+                errorMsg = 'Too many attempts. Please try again later.';
+            }
+            errorDiv.textContent = errorMsg;
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Sign In';
+        }
+    });
+    
+    // Cancel
+    document.getElementById('loginCancelBtn').addEventListener('click', () => {
+        overlay.remove();
+    });
+    
+    // Switch to register
+    document.getElementById('switchToRegisterLink').addEventListener('click', (e) => {
+        e.preventDefault();
+        overlay.remove();
+        showRegisterModal();
+    });
+    
+    // Close on overlay click
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+            overlay.remove();
+        }
+    });
+    
+    // Enter key to submit
+    document.getElementById('loginPasswordInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            document.getElementById('loginSubmitBtn').click();
+        }
+    });
+    
+    // Focus email
+    setTimeout(() => document.getElementById('loginEmailInput').focus(), 100);
+}
+
+function showRegisterModal() {
+    const existingModal = document.getElementById('loginModalOverlay');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    const overlay = document.createElement('div');
+    overlay.id = 'loginModalOverlay';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.6);
+        z-index: 10000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        animation: fadeIn 0.3s ease;
+    `;
+    
+    overlay.innerHTML = `
+        <div style="
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            animation: slideUp 0.3s ease;
+        ">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <div style="
+                    width: 60px;
+                    height: 60px;
+                    background: linear-gradient(135deg, #667eea, #764ba2);
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    margin: 0 auto 15px;
+                ">
+                    <i class="fas fa-user-plus" style="font-size: 28px; color: white;"></i>
+                </div>
+                <h3 style="margin: 0; color: #333;">Create Account</h3>
+                <p style="color: #666; font-size: 13px; margin: 5px 0 0;">Register for a school portal account</p>
+            </div>
+            
+            <div id="registerError" style="display: none; background: #f8d7da; color: #721c24; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-size: 13px; text-align: center;"></div>
+            <div id="registerSuccess" style="display: none; background: #d4edda; color: #155724; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-size: 13px; text-align: center;"></div>
+            
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; color: #555; font-weight: 600; font-size: 13px;">Full Name</label>
+                <input type="text" id="registerNameInput" placeholder="Juan Dela Cruz" style="
+                    width: 100%;
+                    padding: 12px 15px;
+                    border: 2px solid #dee2e6;
+                    border-radius: 10px;
+                    font-size: 14px;
+                    box-sizing: border-box;
+                ">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; color: #555; font-weight: 600; font-size: 13px;">Email</label>
+                <input type="email" id="registerEmailInput" placeholder="your.email@example.com" style="
+                    width: 100%;
+                    padding: 12px 15px;
+                    border: 2px solid #dee2e6;
+                    border-radius: 10px;
+                    font-size: 14px;
+                    box-sizing: border-box;
+                ">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; color: #555; font-weight: 600; font-size: 13px;">Password</label>
+                <input type="password" id="registerPasswordInput" placeholder="Min. 6 characters" style="
+                    width: 100%;
+                    padding: 12px 15px;
+                    border: 2px solid #dee2e6;
+                    border-radius: 10px;
+                    font-size: 14px;
+                    box-sizing: border-box;
+                ">
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 5px; color: #555; font-weight: 600; font-size: 13px;">Confirm Password</label>
+                <input type="password" id="registerConfirmPasswordInput" placeholder="Re-enter password" style="
+                    width: 100%;
+                    padding: 12px 15px;
+                    border: 2px solid #dee2e6;
+                    border-radius: 10px;
+                    font-size: 14px;
+                    box-sizing: border-box;
+                ">
+            </div>
+            
+            <button id="registerSubmitBtn" style="
+                width: 100%;
+                padding: 12px;
+                background: #28a745;
+                color: white;
+                border: none;
+                border-radius: 10px;
+                font-size: 15px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.3s;
+                margin-bottom: 10px;
+            " onmouseover="this.style.background='#218838'" onmouseout="this.style.background='#28a745'">
+                <i class="fas fa-user-plus"></i> Create Account
+            </button>
+            
+            <button id="registerCancelBtn" style="
+                width: 100%;
+                padding: 10px;
+                background: transparent;
+                color: #666;
+                border: 1px solid #dee2e6;
+                border-radius: 10px;
+                font-size: 14px;
+                cursor: pointer;
+                transition: all 0.3s;
+            ">
+                Cancel
+            </button>
+            
+            <p style="text-align: center; margin-top: 15px; font-size: 12px; color: #999;">
+                Already have an account? <a href="#" id="switchToLoginLink" style="color: #1a73e8; text-decoration: none;">Sign in</a>
+            </p>
+        </div>
+    `;
+    
+    document.body.appendChild(overlay);
+    
+    // Register submit
+    document.getElementById('registerSubmitBtn').addEventListener('click', async () => {
+        const name = document.getElementById('registerNameInput').value.trim();
+        const email = document.getElementById('registerEmailInput').value.trim();
+        const password = document.getElementById('registerPasswordInput').value;
+        const confirmPassword = document.getElementById('registerConfirmPasswordInput').value;
+        const errorDiv = document.getElementById('registerError');
+        const successDiv = document.getElementById('registerSuccess');
+        
+        errorDiv.style.display = 'none';
+        successDiv.style.display = 'none';
+        
+        if (!name || !email || !password || !confirmPassword) {
+            errorDiv.style.display = 'block';
+            errorDiv.textContent = 'Please fill in all fields.';
+            return;
+        }
+        
+        if (password.length < 6) {
+            errorDiv.style.display = 'block';
+            errorDiv.textContent = 'Password must be at least 6 characters.';
+            return;
+        }
+        
+        if (password !== confirmPassword) {
+            errorDiv.style.display = 'block';
+            errorDiv.textContent = 'Passwords do not match.';
+            return;
+        }
+        
+        const submitBtn = document.getElementById('registerSubmitBtn');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating account...';
+        
+        try {
+            const cred = await schoolAuth.createUserWithEmailAndPassword(email, password);
+            await usersRef.child(cred.user.uid).set({
+                name: name,
+                email: email,
+                createdAt: Date.now()
+            });
+            
+            successDiv.style.display = 'block';
+            successDiv.textContent = 'Account created! Redirecting to login...';
+            
+            setTimeout(() => {
+                overlay.remove();
+                showLoginModal();
+            }, 1500);
+            
+        } catch (error) {
+            errorDiv.style.display = 'block';
+            let errorMsg = 'Registration failed.';
+            if (error.code === 'auth/email-already-in-use') {
+                errorMsg = 'This email is already registered.';
+            } else if (error.code === 'auth/invalid-email') {
+                errorMsg = 'Invalid email address.';
+            } else if (error.code === 'auth/weak-password') {
+                errorMsg = 'Password is too weak.';
+            }
+            errorDiv.textContent = errorMsg;
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-user-plus"></i> Create Account';
+        }
+    });
+    
+    // Cancel
+    document.getElementById('registerCancelBtn').addEventListener('click', () => {
+        overlay.remove();
+    });
+    
+    // Switch to login
+    document.getElementById('switchToLoginLink').addEventListener('click', (e) => {
+        e.preventDefault();
+        overlay.remove();
+        showLoginModal();
+    });
+    
+    // Close on overlay click
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+            overlay.remove();
+        }
+    });
+}
+
+function handleLogout() {
+    schoolAuth.signOut().then(() => {
+        sessionStorage.removeItem('studentInfo');
+        currentSchoolUser = null;
+        isAuthenticated = false;
+        studentInfo = null;
+        updateAuthUI();
+        displayUserInfo();
+        showToast('Logged out successfully', 'info');
+    }).catch((error) => {
+        showToast('Logout failed: ' + error.message, 'error');
+    });
+}
 
 // ==================== AUTH UI UPDATE ====================
 function updateAuthUI() {
@@ -102,7 +572,6 @@ function updateAuthUI() {
     const contactSection = document.querySelector('.contact-support-section');
     
     if (isAuthenticated && studentInfo) {
-        // Enable support buttons
         if (liveChatBtn) {
             liveChatBtn.disabled = false;
             liveChatBtn.style.opacity = '1';
@@ -116,13 +585,11 @@ function updateAuthUI() {
             voiceCallBtn.title = 'Start Voice Call';
         }
         
-        // Remove login prompt if exists
         const existingPrompt = document.getElementById('authRequiredPrompt');
         if (existingPrompt) {
             existingPrompt.remove();
         }
     } else {
-        // Disable support buttons
         if (liveChatBtn) {
             liveChatBtn.disabled = true;
             liveChatBtn.style.opacity = '0.6';
@@ -136,7 +603,6 @@ function updateAuthUI() {
             voiceCallBtn.title = 'Login required to use Voice Call';
         }
         
-        // Add login prompt if not already present
         if (contactSection && !document.getElementById('authRequiredPrompt')) {
             const promptDiv = document.createElement('div');
             promptDiv.id = 'authRequiredPrompt';
@@ -153,7 +619,7 @@ function updateAuthUI() {
                 <i class="fas fa-lock" style="font-size: 20px; color: #e65100; margin-bottom: 8px; display: block;"></i>
                 <strong style="color: #e65100;">Authentication Required</strong>
                 <p style="margin: 8px 0; color: #666;">Please log in to your school portal account to access Live Chat and Voice Call support.</p>
-                <button id="loginRedirectBtn" style="
+                <button id="loginPromptBtn" style="
                     background: #1a73e8;
                     color: white;
                     border: none;
@@ -165,16 +631,13 @@ function updateAuthUI() {
                     transition: all 0.3s;
                 " onmouseover="this.style.background='#1557b0'; this.style.transform='translateY(-2px)';" 
                    onmouseout="this.style.background='#1a73e8'; this.style.transform='translateY(0)';">
-                    <i class="fas fa-sign-in-alt"></i> Go to School Portal Login
+                    <i class="fas fa-sign-in-alt"></i> Login Here
                 </button>
             `;
             contactSection.appendChild(promptDiv);
             
-            // Add login redirect handler
-            document.getElementById('loginRedirectBtn').addEventListener('click', () => {
-                // Redirect to school portal login page
-                const schoolPortalUrl = window.location.origin + '/index.html'; // Adjust path as needed
-                window.location.href = schoolPortalUrl + '?redirect=' + encodeURIComponent(window.location.href);
+            document.getElementById('loginPromptBtn').addEventListener('click', () => {
+                showLoginModal();
             });
         }
     }
@@ -183,11 +646,9 @@ function updateAuthUI() {
 // ==================== LOAD STUDENT DATA FROM SCHOOL ENROLLMENT SYSTEM ====================
 async function loadStudentDataFromSchool(user) {
     try {
-        // Get user data from school enrollment system
         const userSnapshot = await usersRef.child(user.uid).once('value');
         const userData = userSnapshot.val();
         
-        // Get application data
         const appSnapshot = await applicationsRef.orderByChild('userId').equalTo(user.uid).once('value');
         let applicationData = null;
         
@@ -197,7 +658,6 @@ async function loadStudentDataFromSchool(user) {
             });
         }
         
-        // Build student info from school enrollment data
         studentInfo = {
             userId: user.uid,
             userName: userData?.name || applicationData?.fullName || user.displayName || user.email?.split('@')[0] || 'Student',
@@ -209,21 +669,16 @@ async function loadStudentDataFromSchool(user) {
             isEnrolled: applicationData?.status === 'approved'
         };
         
-        // Store in session
         sessionStorage.setItem('studentInfo', JSON.stringify(studentInfo));
         
-        // Update UI
         updateAuthUI();
         displayUserInfo();
-        
-        // Update any active support requests
         updateSupportRequestData();
         
         console.log('Student data loaded from school enrollment system:', studentInfo);
         
     } catch (error) {
         console.error('Error loading student data from school:', error);
-        // Don't fallback - user must be authenticated
         studentInfo = null;
         isAuthenticated = false;
         updateAuthUI();
@@ -273,19 +728,33 @@ function displayUserInfo() {
                 <strong>${studentInfo.userName}</strong> ${statusBadge}
                 <br><small>${studentInfo.userEmail}</small>
                 ${studentInfo.strandCourse ? `<br><small style="color:#666;">${studentInfo.strandCourse} - ${studentInfo.yearLevel || ''}</small>` : ''}
+                <br><a href="#" id="logoutLink" style="color: #dc3545; font-size: 12px; text-decoration: none;"><i class="fas fa-sign-out-alt"></i> Logout</a>
             </div>
         `;
+        
+        document.getElementById('logoutLink').addEventListener('click', (e) => {
+            e.preventDefault();
+            handleLogout();
+        });
     } else {
-        // Not authenticated - show login prompt
         userInfo.innerHTML = `
-            <div class="user-avatar" style="background:#dc3545;">
+            <div class="user-avatar" style="background:#dc3545; cursor:pointer;" id="loginAvatarBtn">
                 <i class="fas fa-user-lock"></i>
             </div>
             <div>
                 <strong style="color:#dc3545;">Not Logged In</strong>
-                <br><small>Please login to access support</small>
+                <br><a href="#" id="loginLink" style="color: #1a73e8; font-size: 13px; text-decoration: none;"><i class="fas fa-sign-in-alt"></i> Sign In</a>
             </div>
         `;
+        
+        document.getElementById('loginLink').addEventListener('click', (e) => {
+            e.preventDefault();
+            showLoginModal();
+        });
+        
+        document.getElementById('loginAvatarBtn').addEventListener('click', () => {
+            showLoginModal();
+        });
     }
 }
 
@@ -368,7 +837,8 @@ function renderCategories() {
 
 // ==================== TOPICS ====================
 function loadTopics() {
-    topicsRef.on('value', (snapshot) => {
+    // Initial load
+    topicsRef.once('value', (snapshot) => {
         allTopics = [];
         const topics = snapshot.val() || {};
         
@@ -379,8 +849,39 @@ function loadTopics() {
             });
         });
         
+        topicsLoaded = true;
         renderCategories();
         filterAndRenderTopics();
+    }).then(() => {
+        // After initial load, set up real-time listener
+        topicsRef.on('value', (snapshot) => {
+            allTopics = [];
+            const topics = snapshot.val() || {};
+            
+            Object.entries(topics).forEach(([key, value]) => {
+                allTopics.push({
+                    id: key,
+                    ...value
+                });
+            });
+            
+            if (topicsLoaded) {
+                renderCategories();
+                filterAndRenderTopics();
+            }
+        });
+    }).catch((error) => {
+        console.error('Error loading topics:', error);
+        // Show error state
+        const topicsGrid = document.getElementById('topicsGrid');
+        if (topicsGrid) {
+            topicsGrid.innerHTML = `
+                <div style="text-align:center; padding:40px; color:#dc3545;">
+                    <i class="fas fa-exclamation-triangle" style="font-size:40px; margin-bottom:15px; display:block;"></i>
+                    <p>Failed to load topics. Please try refreshing the page.</p>
+                </div>
+            `;
+        }
     });
 }
 
@@ -422,10 +923,20 @@ function renderTopics(topics) {
     
     if (!topicsGrid) return;
     
+    if (!topicsLoaded) {
+        topicsGrid.innerHTML = `
+            <div class="loading">
+                <i class="fas fa-spinner"></i>
+                <p>Loading topics...</p>
+            </div>
+        `;
+        return;
+    }
+    
     if (topics.length === 0) {
         topicsGrid.innerHTML = '';
         if (noTopics) noTopics.style.display = 'block';
-        if (topicsTitle) topicsTitle.textContent = 'No Topics Found';
+        if (topicsTitle) topicsTitle.textContent = allTopics.length === 0 ? 'No Topics Available' : 'No Topics Found';
         return;
     }
     
@@ -585,9 +1096,8 @@ function monitorCSRStatus() {
 
 // ==================== LIVE CHAT (Requires Authentication) ====================
 function openLiveChat() {
-    // Check authentication first
     if (!isAuthenticated || !studentInfo) {
-        showAuthRequiredModal('Live Chat');
+        showLoginModal();
         return;
     }
     
@@ -604,7 +1114,6 @@ function openLiveChat() {
     queueInfo.innerHTML = '<i class="fas fa-clock"></i> Connecting to support...';
     queueInfo.className = 'queue-info';
     
-    // Create chat request with school enrollment account info
     const chatRequest = {
         studentId: studentInfo.userId,
         studentName: studentInfo.userName,
@@ -732,9 +1241,8 @@ function formatTime(timestamp) {
 
 // ==================== VOICE CALL (Requires Authentication) ====================
 async function openVoiceCall() {
-    // Check authentication first
     if (!isAuthenticated || !studentInfo) {
-        showAuthRequiredModal('Voice Call');
+        showLoginModal();
         return;
     }
     
@@ -749,7 +1257,6 @@ async function openVoiceCall() {
         
         document.getElementById('callStatus').textContent = 'Connecting to support...';
         
-        // Create call request with school enrollment account info
         const callRequest = {
             studentId: studentInfo.userId,
             studentName: studentInfo.userName,
@@ -905,131 +1412,6 @@ function endVoiceCall() {
     if (callTimerElement) callTimerElement.textContent = '00:00';
     const callStatusElement = document.getElementById('callStatus');
     if (callStatusElement) callStatusElement.textContent = 'Call ended';
-}
-
-// ==================== AUTH REQUIRED MODAL ====================
-function showAuthRequiredModal(serviceType) {
-    // Remove existing auth modal if any
-    const existingModal = document.getElementById('authRequiredModal');
-    if (existingModal) {
-        existingModal.remove();
-    }
-    
-    // Create modal overlay
-    const overlay = document.createElement('div');
-    overlay.id = 'authRequiredModal';
-    overlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0,0,0,0.6);
-        z-index: 9999;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        animation: fadeIn 0.3s ease;
-    `;
-    
-    // Create modal content
-    overlay.innerHTML = `
-        <div style="
-            background: white;
-            border-radius: 15px;
-            padding: 30px;
-            max-width: 450px;
-            width: 90%;
-            text-align: center;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            animation: slideUp 0.3s ease;
-        ">
-            <div style="
-                width: 70px;
-                height: 70px;
-                background: #fff3cd;
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                margin: 0 auto 20px;
-            ">
-                <i class="fas fa-lock" style="font-size: 30px; color: #e65100;"></i>
-            </div>
-            <h3 style="margin: 0 0 10px; color: #333; font-size: 20px;">Authentication Required</h3>
-            <p style="color: #666; margin: 0 0 10px; line-height: 1.6;">
-                You need to be logged into your <strong>Cousins University School Portal</strong> account to access <strong>${serviceType}</strong>.
-            </p>
-            <p style="color: #999; font-size: 13px; margin: 0 0 20px;">
-                This ensures we can provide you with personalized support based on your enrollment status.
-            </p>
-            <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                <button id="goToLoginBtn" style="
-                    background: #1a73e8;
-                    color: white;
-                    border: none;
-                    padding: 12px 30px;
-                    border-radius: 25px;
-                    font-size: 15px;
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: all 0.3s;
-                " onmouseover="this.style.background='#1557b0'; this.style.transform='translateY(-2px)';" 
-                   onmouseout="this.style.background='#1a73e8'; this.style.transform='translateY(0)';">
-                    <i class="fas fa-sign-in-alt"></i> Go to Login
-                </button>
-                <button id="closeAuthModalBtn" style="
-                    background: #6c757d;
-                    color: white;
-                    border: none;
-                    padding: 12px 30px;
-                    border-radius: 25px;
-                    font-size: 15px;
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: all 0.3s;
-                " onmouseover="this.style.background='#5a6268'; this.style.transform='translateY(-2px)';" 
-                   onmouseout="this.style.background='#6c757d'; this.style.transform='translateY(0)';">
-                    <i class="fas fa-times"></i> Cancel
-                </button>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(overlay);
-    
-    // Add event listeners
-    document.getElementById('goToLoginBtn').addEventListener('click', () => {
-        // Store current URL to redirect back after login
-        sessionStorage.setItem('supportReturnUrl', window.location.href);
-        // Redirect to school portal login
-        const schoolPortalUrl = window.location.origin + '/index.html';
-        window.location.href = schoolPortalUrl + '?redirect=' + encodeURIComponent(window.location.href);
-    });
-    
-    document.getElementById('closeAuthModalBtn').addEventListener('click', () => {
-        overlay.remove();
-    });
-    
-    // Close on overlay click
-    overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) {
-            overlay.remove();
-        }
-    });
-    
-    // Add animation styles
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes slideUp {
-            from { transform: translateY(50px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-    `;
-    if (!document.querySelector('style[data-auth-anim]')) {
-        style.setAttribute('data-auth-anim', 'true');
-        document.head.appendChild(style);
-    }
 }
 
 // ==================== TOAST NOTIFICATIONS ====================
