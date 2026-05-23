@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cousins University - Help & Support</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        :root {
+            --primary: #1a73e8;
+            --primary-dark: #1557b0;
+            --success: #28a745;
+            --danger: #dc3545;
+            --warning: #ffc107;
+            --info: #17a2b8;
+            --light: #f8f9fa;
+            --dark: #343a40;
+            --border: #dee2e6;
+            --shadow: 0 2px 10px rgba(0,0,0,0.1);
+            --radius: 12px;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            background: white;
+            border-radius: var(--radius);
+            padding: 25px 30px;
+            margin-bottom: 25px;
+            box-shadow: var(--shadow);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            color: var(--dark);
+        }
+
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .queue-status {
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .queue-status.busy {
+            background: #fff3e0;
+            color: #e65100;
+        }
+
+        /* Main Layout */
+        .main-content {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 25px;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            background: white;
+            border-radius: var(--radius);
+            padding: 20px;
+            box-shadow: var(--shadow);
+            height: fit-content;
+            position: sticky;
+            top: 20px;
+        }
+
+        .sidebar h3 {
+            margin-bottom: 15px;
+            color: var(--dark);
+            font-size: 18px;
+        }
+
+        .category-list {
+            list-style: none;
+        }
+
+        .category-item {
+            padding: 12px 15px;
+            margin-bottom: 5px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #555;
+        }
+
+        .category-item:hover {
+            background: #f0f0f0;
+        }
+
+        .category-item.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .category-item i {
+            width: 20px;
+            text-align: center;
+        }
+
+        .category-count {
+            margin-left: auto;
+            background: rgba(255,255,255,0.3);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+        }
+
+        .category-item.active .category-count {
+            background: rgba(255,255,255,0.5);
+        }
+
+        /* Content Area */
+        .content {
+            background: white;
+            border-radius: var(--radius);
+            padding: 30px;
+            box-shadow: var(--shadow);
+        }
+
+        .search-bar {
+            position: relative;
+            margin-bottom: 25px;
+        }
+
+        .search-bar input {
+            width: 100%;
+            padding: 15px 20px 15px 50px;
+            border: 2px solid var(--border);
+            border-radius: 30px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        .search-bar input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(26,115,232,0.1);
+        }
+
+        .search-bar i {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #999;
+            font-size: 18px;
+        }
+
+        .topics-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .topics-header h2 {
+            font-size: 22px;
+            color: var(--dark);
+        }
+
+        .sort-btn {
+            padding: 8px 16px;
+            background: var(--light);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .sort-btn:hover {
+            background: #e9ecef;
+        }
+
+        /* Topic Cards */
+        .topics-grid {
+            display: grid;
+            gap: 15px;
+        }
+
+        .topic-card {
+            background: var(--light);
+            border-radius: 10px;
+            padding: 20px;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+            cursor: pointer;
+        }
+
+        .topic-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .topic-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 10px;
+        }
+
+        .topic-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--dark);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .topic-badge {
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-new {
+            background: #e3f2fd;
+            color: var(--primary);
+        }
+
+        .badge-popular {
+            background: #fff3e0;
+            color: #e65100;
+        }
+
+        .badge-updated {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .topic-description {
+            color: #666;
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+
+        .topic-meta {
+            display: flex;
+            gap: 20px;
+            font-size: 13px;
+            color: #999;
+        }
+
+        .topic-meta span {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .topic-expanded {
+            display: none;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid var(--border);
+        }
+
+        .topic-card.expanded .topic-expanded {
+            display: block;
+        }
+
+        .topic-content {
+            line-height: 1.8;
+            color: #444;
+        }
+
+        .topic-content h4 {
+            margin: 15px 0 10px;
+            color: var(--dark);
+        }
+
+        .topic-content ul {
+            margin-left: 20px;
+            margin-bottom: 15px;
+        }
+
+        .topic-content li {
+            margin-bottom: 5px;
+        }
+
+        /* Contact Support Buttons */
+        .contact-support-section {
+            margin-top: 30px;
+            padding: 25px;
+            background: linear-gradient(135deg, #667eea22, #764ba222);
+            border-radius: var(--radius);
+            text-align: center;
+        }
+
+        .contact-support-section h3 {
+            margin-bottom: 10px;
+            color: var(--dark);
+        }
+
+        .contact-support-section p {
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .contact-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 30px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+        }
+
+        .btn-chat {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-chat:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(26,115,232,0.3);
+        }
+
+        .btn-call {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-call:hover {
+            background: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40,167,69,0.3);
+        }
+
+        .btn-email {
+            background: var(--dark);
+            color: white;
+        }
+
+        .btn-email:hover {
+            background: #23272b;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52,58,64,0.3);
+        }
+
+        /* Chat Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .chat-modal {
+            background: white;
+            border-radius: var(--radius);
+            width: 500px;
+            max-width: 90vw;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+
+        .chat-header {
+            background: var(--primary);
+            color: white;
+            padding: 15px 20px;
+            border-radius: var(--radius) var(--radius) 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-header h3 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .chat-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            min-height: 300px;
+            max-height: 400px;
+            background: #f8f9fa;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .message.user {
+            flex-direction: row-reverse;
+        }
+
+        .message-avatar {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .message.support .message-avatar {
+            background: var(--info);
+        }
+
+        .message.user .message-avatar {
+            background: var(--primary);
+        }
+
+        .message-bubble {
+            background: white;
+            padding: 12px 16px;
+            border-radius: 15px;
+            max-width: 70%;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .message.user .message-bubble {
+            background: var(--primary);
+            color: white;
+        }
+
+        .message-time {
+            font-size: 11px;
+            color: #999;
+            margin-top: 5px;
+        }
+
+        .message.user .message-time {
+            color: rgba(255,255,255,0.7);
+        }
+
+        .chat-system-message {
+            text-align: center;
+            color: #999;
+            font-size: 13px;
+            margin: 10px 0;
+        }
+
+        .chat-input-area {
+            padding: 15px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input-area input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 1px solid var(--border);
+            border-radius: 25px;
+            font-size: 14px;
+        }
+
+        .chat-input-area input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .chat-send-btn {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.3s;
+        }
+
+        .chat-send-btn:hover {
+            background: var(--primary-dark);
+        }
+
+        .chat-send-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        /* Queue Info */
+        .queue-info {
+            padding: 10px 20px;
+            background: #fff3e0;
+            color: #e65100;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .queue-info.connected {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        /* Call Modal */
+        .call-modal {
+            background: white;
+            border-radius: var(--radius);
+            width: 400px;
+            max-width: 90vw;
+            padding: 30px;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+
+        .call-icon {
+            font-size: 50px;
+            color: var(--success);
+            margin-bottom: 20px;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .call-status {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .call-timer {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--dark);
+            margin-bottom: 20px;
+        }
+
+        .call-controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .call-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            font-size: 20px;
+            color: white;
+            transition: all 0.3s;
+        }
+
+        .call-btn.mute {
+            background: #666;
+        }
+
+        .call-btn.mute.active {
+            background: var(--danger);
+        }
+
+        .call-btn.end {
+            background: var(--danger);
+            width: 60px;
+            height: 60px;
+            font-size: 24px;
+        }
+
+        .call-btn.end:hover {
+            background: #c82333;
+        }
+
+        /* No Topics State */
+        .no-topics {
+            text-align: center;
+            padding: 50px 20px;
+            color: #999;
+        }
+
+        .no-topics i {
+            font-size: 60px;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .no-topics h3 {
+            margin-bottom: 10px;
+            color: #666;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 30px;
+        }
+
+        .loading i {
+            font-size: 30px;
+            animation: spin 1s linear infinite;
+            color: var(--primary);
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .sidebar {
+                position: static;
+            }
+            
+            .header {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .header-left {
+                flex-direction: column;
+            }
+            
+            .contact-buttons {
+                flex-direction: column;
+            }
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 10px;
+            color: white;
+            z-index: 9999;
+            animation: slideIn 0.3s ease;
+            max-width: 400px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+        .toast.info { background: var(--info); }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-left">
+                <div class="logo">
+                    <i class="fas fa-headset"></i>
+                </div>
+                <div>
+                    <h1>Cousins University Help & Support</h1>
+                    <p>We're here to help you succeed</p>
+                </div>
+            </div>
+            <div class="user-info" id="userInfo">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <h3><i class="fas fa-folder"></i> Categories</h3>
+                <ul class="category-list" id="categoryList">
+                    <li class="category-item active" data-category="all">
+                        <i class="fas fa-list"></i> All Topics
+                        <span class="category-count" id="countAll">0</span>
+                    </li>
+                    <!-- Dynamically populated -->
+                </ul>
+                <div class="queue-status" id="queueStatus">
+                    <i class="fas fa-circle"></i>
+                    <span>CSR Available</span>
+                </div>
+            </div>
+
+            <!-- Content -->
+            <div class="content">
+                <div class="search-bar">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="searchInput" placeholder="Search help topics...">
+                </div>
+
+                <div class="topics-header">
+                    <h2 id="topicsTitle">All Help Topics</h2>
+                    <div>
+                        <button class="sort-btn" id="sortBtn">
+                            <i class="fas fa-sort-amount-down"></i> Newest First
+                        </button>
+                    </div>
+                </div>
+
+                <div class="topics-grid" id="topicsGrid">
+                    <div class="loading">
+                        <i class="fas fa-spinner"></i>
+                        <p>Loading topics...</p>
+                    </div>
+                </div>
+
+                <div class="no-topics" id="noTopics" style="display:none;">
+                    <i class="fas fa-book-open"></i>
+                    <h3>No Help Topics Yet</h3>
+                    <p>Check back soon for helpful articles and guides.</p>
+                </div>
+
+                <!-- Contact Support Section -->
+                <div class="contact-support-section">
+                    <h3><i class="fas fa-question-circle"></i> Need More Help?</h3>
+                    <p>Our support team is ready to assist you</p>
+                    <div class="contact-buttons">
+                        <button class="btn btn-chat" id="liveChatBtn">
+                            <i class="fas fa-comments"></i> Live Chat
+                        </button>
+                        <button class="btn btn-call" id="voiceCallBtn">
+                            <i class="fas fa-phone-alt"></i> Customer Service Call
+                        </button>
+                        <a href="mailto:support@cousinsuniversity.edu.ph" class="btn btn-email">
+                            <i class="fas fa-envelope"></i> Email Support
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chat Modal -->
+    <div class="modal-overlay" id="chatModal">
+        <div class="chat-modal">
+            <div class="chat-header">
+                <h3><i class="fas fa-comments"></i> Live Chat Support</h3>
+                <button class="chat-close" id="chatClose">&times;</button>
+            </div>
+            <div class="queue-info" id="queueInfo">
+                <i class="fas fa-clock"></i> Connecting to support...
+            </div>
+            <div class="chat-messages" id="chatMessages">
+                <!-- Messages appear here -->
+            </div>
+            <div class="chat-input-area">
+                <input type="text" id="chatInput" placeholder="Type your message..." disabled>
+                <button class="chat-send-btn" id="chatSendBtn" disabled>
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Call Modal -->
+    <div class="modal-overlay" id="callModal">
+        <div class="call-modal">
+            <div class="call-icon">
+                <i class="fas fa-phone-alt"></i>
+            </div>
+            <div class="call-status" id="callStatus">Connecting...</div>
+            <div class="call-timer" id="callTimer">00:00</div>
+            <div class="call-controls">
+                <button class="call-btn mute" id="muteBtn" title="Mute">
+                    <i class="fas fa-microphone"></i>
+                </button>
+                <button class="call-btn end" id="endCallBtn" title="End Call">
+                    <i class="fas fa-phone-slash"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
