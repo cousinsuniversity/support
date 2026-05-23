@@ -60,6 +60,7 @@ let callTimerInterval = null;
 let currentSchoolUser = null;
 let isAuthenticated = false;
 let topicsLoaded = false;
+let currentTopicView = null;
 
 // WebRTC
 let localStream = null;
@@ -79,6 +80,9 @@ document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
     monitorCSRStatus();
     updateAuthUI();
+    
+    // Check URL hash for topic detail view
+    checkUrlHash();
     
     // Check for stored session
     const storedInfo = sessionStorage.getItem('studentInfo');
@@ -100,7 +104,6 @@ document.addEventListener('DOMContentLoaded', () => {
             isAuthenticated = true;
             loadStudentDataFromSchool(user);
         } else {
-            // Don't set to false if we have session data
             if (!sessionStorage.getItem('studentInfo')) {
                 currentSchoolUser = null;
                 isAuthenticated = false;
@@ -110,11 +113,183 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     });
+    
+    // Listen for browser back/forward
+    window.addEventListener('hashchange', checkUrlHash);
 });
+
+function checkUrlHash() {
+    const hash = window.location.hash;
+    if (hash.startsWith('#topic/')) {
+        const topicId = hash.replace('#topic/', '');
+        showTopicDetail(topicId);
+    } else {
+        hideTopicDetail();
+    }
+}
+
+// ==================== TOPIC DETAIL VIEW ====================
+function showTopicDetail(topicId) {
+    // Find the topic
+    const topic = allTopics.find(t => t.id === topicId);
+    if (!topic) {
+        window.location.hash = '';
+        return;
+    }
+    
+    currentTopicView = topicId;
+    
+    // Hide topics grid and show detail
+    const topicsGrid = document.getElementById('topicsGrid');
+    const noTopics = document.getElementById('noTopics');
+    const topicsTitle = document.getElementById('topicsTitle');
+    const searchBar = document.querySelector('.search-bar');
+    const sortBtn = document.getElementById('sortBtn');
+    const topicsHeader = document.querySelector('.topics-header');
+    
+    // Create back button area if not exists
+    let backNav = document.getElementById('topicBackNav');
+    if (!backNav) {
+        backNav = document.createElement('div');
+        backNav.id = 'topicBackNav';
+        backNav.style.cssText = 'margin-bottom:20px; display:none;';
+        if (topicsHeader && topicsHeader.parentNode) {
+            topicsHeader.parentNode.insertBefore(backNav, topicsHeader);
+        }
+    }
+    
+    backNav.innerHTML = `
+        <button id="backToTopicsBtn" style="
+            background: #f0f0f0;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            transition: all 0.3s;
+        " onmouseover="this.style.background='#e0e0e0'" onmouseout="this.style.background='#f0f0f0'">
+            <i class="fas fa-arrow-left"></i> Back to Topics
+        </button>
+    `;
+    backNav.style.display = 'block';
+    
+    document.getElementById('backToTopicsBtn').addEventListener('click', () => {
+        window.location.hash = '';
+        hideTopicDetail();
+    });
+    
+    // Hide search and sort
+    if (searchBar) searchBar.style.display = 'none';
+    if (sortBtn) sortBtn.style.display = 'none';
+    if (noTopics) noTopics.style.display = 'none';
+    
+    // Update title
+    if (topicsTitle) {
+        topicsTitle.innerHTML = `<i class="fas fa-file-alt" style="color:var(--primary);"></i> ${topic.title || 'Untitled'}`;
+    }
+    
+    // Render topic detail
+    const createdDate = topic.createdAt ? new Date(topic.createdAt).toLocaleDateString('en-US', {
+        year: 'numeric', month: 'long', day: 'numeric'
+    }) : 'Unknown';
+    
+    const updatedDate = topic.updatedAt && topic.updatedAt !== topic.createdAt ? 
+        new Date(topic.updatedAt).toLocaleDateString('en-US', {
+            year: 'numeric', month: 'long', day: 'numeric'
+        }) : null;
+    
+    const tagsHtml = (topic.tags || []).map(tag => 
+        `<span style="background:#e9ecef; padding:4px 12px; border-radius:15px; font-size:13px; margin-right:5px;">#${tag}</span>`
+    ).join('');
+    
+    topicsGrid.innerHTML = `
+        <div style="background:white; border-radius:12px; padding:30px; box-shadow:0 2px 10px rgba(0,0,0,0.05);">
+            <div style="margin-bottom:20px; padding-bottom:20px; border-bottom:1px solid #eee;">
+                <div style="display:flex; align-items:center; gap:15px; margin-bottom:10px; flex-wrap:wrap;">
+                    <span style="background:#e3f2fd; color:#1a73e8; padding:5px 15px; border-radius:20px; font-size:13px; font-weight:600;">
+                        <i class="fas fa-folder"></i> ${topic.category || 'Uncategorized'}
+                    </span>
+                    <span style="color:#666; font-size:13px;">
+                        <i class="fas fa-eye"></i> ${topic.views || 0} views
+                    </span>
+                    <span style="color:#666; font-size:13px;">
+                        <i class="fas fa-calendar"></i> Published: ${createdDate}
+                    </span>
+                    ${updatedDate ? `<span style="color:#666; font-size:13px;"><i class="fas fa-edit"></i> Updated: ${updatedDate}</span>` : ''}
+                </div>
+                ${tagsHtml ? `<div style="margin-top:10px;">${tagsHtml}</div>` : ''}
+            </div>
+            
+            <div style="margin-bottom:25px;">
+                <h3 style="color:#555; margin-bottom:10px;">Description</h3>
+                <p style="color:#666; font-size:15px; line-height:1.8;">${topic.description || 'No description available.'}</p>
+            </div>
+            
+            <div style="background:#f8f9fa; padding:25px; border-radius:10px; border-left:4px solid #1a73e8;">
+                <h3 style="color:#333; margin-bottom:15px;">Detailed Content</h3>
+                <div style="color:#444; font-size:15px; line-height:1.9;">
+                    ${topic.content || 'No detailed content available.'}
+                </div>
+            </div>
+            
+            <div style="margin-top:30px; padding-top:20px; border-top:1px solid #eee; text-align:center;">
+                <p style="color:#999; margin-bottom:15px;">Was this article helpful?</p>
+                <button onclick="incrementViewCount('${topic.id}'); showToast('Thank you for your feedback!', 'success');" style="
+                    background: #28a745;
+                    color: white;
+                    border: none;
+                    padding: 10px 25px;
+                    border-radius: 25px;
+                    cursor: pointer;
+                    font-size: 14px;
+                    margin: 0 5px;
+                    transition: all 0.3s;
+                " onmouseover="this.style.background='#218838'" onmouseout="this.style.background='#28a745'">
+                    <i class="fas fa-thumbs-up"></i> Yes
+                </button>
+                <button onclick="showToast('We will improve this article. Thank you!', 'info');" style="
+                    background: #dc3545;
+                    color: white;
+                    border: none;
+                    padding: 10px 25px;
+                    border-radius: 25px;
+                    cursor: pointer;
+                    font-size: 14px;
+                    margin: 0 5px;
+                    transition: all 0.3s;
+                " onmouseover="this.style.background='#c82333'" onmouseout="this.style.background='#dc3545'">
+                    <i class="fas fa-thumbs-down"></i> No
+                </button>
+            </div>
+        </div>
+    `;
+    
+    // Increment view
+    incrementViewCount(topicId);
+}
+
+function hideTopicDetail() {
+    currentTopicView = null;
+    
+    const searchBar = document.querySelector('.search-bar');
+    const sortBtn = document.getElementById('sortBtn');
+    const backNav = document.getElementById('topicBackNav');
+    const topicsTitle = document.getElementById('topicsTitle');
+    
+    if (searchBar) searchBar.style.display = '';
+    if (sortBtn) sortBtn.style.display = '';
+    if (backNav) backNav.style.display = 'none';
+    if (topicsTitle) {
+        topicsTitle.textContent = selectedCategory === 'all' ? 'All Help Topics' : `${selectedCategory} Topics`;
+    }
+    
+    filterAndRenderTopics();
+}
 
 // ==================== IN-PAGE LOGIN MODAL ====================
 function showLoginModal() {
-    // Remove existing modal if any
     const existingModal = document.getElementById('loginModalOverlay');
     if (existingModal) {
         existingModal.remove();
@@ -243,7 +418,6 @@ function showLoginModal() {
     
     document.body.appendChild(overlay);
     
-    // Toggle password visibility
     document.getElementById('togglePasswordBtn').addEventListener('click', () => {
         const passwordInput = document.getElementById('loginPasswordInput');
         const icon = document.querySelector('#togglePasswordBtn i');
@@ -256,7 +430,6 @@ function showLoginModal() {
         }
     });
     
-    // Login submit
     document.getElementById('loginSubmitBtn').addEventListener('click', async () => {
         const email = document.getElementById('loginEmailInput').value.trim();
         const password = document.getElementById('loginPasswordInput').value;
@@ -274,7 +447,6 @@ function showLoginModal() {
         
         try {
             await schoolAuth.signInWithEmailAndPassword(email, password);
-            // Auth state listener will handle the rest
             overlay.remove();
             showToast('Login successful!', 'success');
         } catch (error) {
@@ -296,33 +468,28 @@ function showLoginModal() {
         }
     });
     
-    // Cancel
     document.getElementById('loginCancelBtn').addEventListener('click', () => {
         overlay.remove();
     });
     
-    // Switch to register
     document.getElementById('switchToRegisterLink').addEventListener('click', (e) => {
         e.preventDefault();
         overlay.remove();
         showRegisterModal();
     });
     
-    // Close on overlay click
     overlay.addEventListener('click', (e) => {
         if (e.target === overlay) {
             overlay.remove();
         }
     });
     
-    // Enter key to submit
     document.getElementById('loginPasswordInput').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
             document.getElementById('loginSubmitBtn').click();
         }
     });
     
-    // Focus email
     setTimeout(() => document.getElementById('loginEmailInput').focus(), 100);
 }
 
@@ -464,7 +631,6 @@ function showRegisterModal() {
     
     document.body.appendChild(overlay);
     
-    // Register submit
     document.getElementById('registerSubmitBtn').addEventListener('click', async () => {
         const name = document.getElementById('registerNameInput').value.trim();
         const email = document.getElementById('registerEmailInput').value.trim();
@@ -531,19 +697,16 @@ function showRegisterModal() {
         }
     });
     
-    // Cancel
     document.getElementById('registerCancelBtn').addEventListener('click', () => {
         overlay.remove();
     });
     
-    // Switch to login
     document.getElementById('switchToLoginLink').addEventListener('click', (e) => {
         e.preventDefault();
         overlay.remove();
         showLoginModal();
     });
     
-    // Close on overlay click
     overlay.addEventListener('click', (e) => {
         if (e.target === overlay) {
             overlay.remove();
@@ -837,7 +1000,7 @@ function renderCategories() {
 
 // ==================== TOPICS ====================
 function loadTopics() {
-    // Initial load
+    // Use once() for initial load to fix the stuck loading issue
     topicsRef.once('value', (snapshot) => {
         allTopics = [];
         const topics = snapshot.val() || {};
@@ -852,40 +1015,52 @@ function loadTopics() {
         topicsLoaded = true;
         renderCategories();
         filterAndRenderTopics();
-    }).then(() => {
-        // After initial load, set up real-time listener
-        topicsRef.on('value', (snapshot) => {
-            allTopics = [];
-            const topics = snapshot.val() || {};
-            
-            Object.entries(topics).forEach(([key, value]) => {
-                allTopics.push({
-                    id: key,
-                    ...value
-                });
-            });
-            
-            if (topicsLoaded) {
-                renderCategories();
-                filterAndRenderTopics();
-            }
-        });
+        
+        console.log('Topics loaded successfully. Count:', allTopics.length);
     }).catch((error) => {
         console.error('Error loading topics:', error);
-        // Show error state
+        topicsLoaded = true; // Set to true even on error to stop loading spinner
         const topicsGrid = document.getElementById('topicsGrid');
         if (topicsGrid) {
             topicsGrid.innerHTML = `
                 <div style="text-align:center; padding:40px; color:#dc3545;">
                     <i class="fas fa-exclamation-triangle" style="font-size:40px; margin-bottom:15px; display:block;"></i>
-                    <p>Failed to load topics. Please try refreshing the page.</p>
+                    <p>Failed to load topics. Please check your connection and try refreshing.</p>
+                    <button onclick="location.reload()" style="margin-top:15px; padding:10px 20px; background:#1a73e8; color:white; border:none; border-radius:25px; cursor:pointer;">
+                        <i class="fas fa-redo"></i> Refresh Page
+                    </button>
                 </div>
             `;
+        }
+    });
+    
+    // Set up real-time listener after initial load
+    topicsRef.on('value', (snapshot) => {
+        if (!topicsLoaded) return; // Skip if initial load hasn't completed
+        
+        allTopics = [];
+        const topics = snapshot.val() || {};
+        
+        Object.entries(topics).forEach(([key, value]) => {
+            allTopics.push({
+                id: key,
+                ...value
+            });
+        });
+        
+        renderCategories();
+        
+        // Only re-render if we're not viewing a topic detail
+        if (!currentTopicView) {
+            filterAndRenderTopics();
         }
     });
 }
 
 function filterAndRenderTopics() {
+    // Don't render if viewing a topic detail
+    if (currentTopicView) return;
+    
     const searchTerm = document.getElementById('searchInput')?.value?.toLowerCase() || '';
     
     let filtered = [...allTopics];
@@ -923,6 +1098,9 @@ function renderTopics(topics) {
     
     if (!topicsGrid) return;
     
+    // Don't render if viewing topic detail
+    if (currentTopicView) return;
+    
     if (!topicsLoaded) {
         topicsGrid.innerHTML = `
             <div class="loading">
@@ -936,7 +1114,19 @@ function renderTopics(topics) {
     if (topics.length === 0) {
         topicsGrid.innerHTML = '';
         if (noTopics) noTopics.style.display = 'block';
-        if (topicsTitle) topicsTitle.textContent = allTopics.length === 0 ? 'No Topics Available' : 'No Topics Found';
+        if (topicsTitle) topicsTitle.textContent = allTopics.length === 0 ? 'No Topics Available Yet' : 'No Topics Found';
+        
+        // If no topics at all, show a helpful message
+        if (allTopics.length === 0) {
+            if (noTopics) {
+                noTopics.innerHTML = `
+                    <i class="fas fa-book-open"></i>
+                    <h3>No Help Topics Yet</h3>
+                    <p>The support team is working on creating helpful articles.</p>
+                    <p style="font-size:13px; color:#999;">Topics added by the admin will appear here automatically.</p>
+                `;
+            }
+        }
         return;
     }
     
@@ -967,7 +1157,7 @@ function renderTopics(topics) {
         ).join(' ');
         
         html += `
-            <div class="topic-card" data-id="${topic.id}" onclick="toggleTopic(this, '${topic.id}')">
+            <div class="topic-card" data-id="${topic.id}" onclick="openTopicDetail('${topic.id}')" style="cursor:pointer;">
                 <div class="topic-card-header">
                     <div class="topic-title">
                         <i class="fas fa-file-alt" style="color:var(--primary);"></i>
@@ -982,9 +1172,6 @@ function renderTopics(topics) {
                     <span><i class="fas fa-folder"></i> ${topic.category || 'Uncategorized'}</span>
                 </div>
                 ${tagsHtml ? `<div style="margin-top:10px;">${tagsHtml}</div>` : ''}
-                <div class="topic-expanded">
-                    <div class="topic-content">${topic.content || 'No detailed content available.'}</div>
-                </div>
             </div>
         `;
     });
@@ -992,15 +1179,13 @@ function renderTopics(topics) {
     topicsGrid.innerHTML = html;
 }
 
+function openTopicDetail(topicId) {
+    window.location.hash = 'topic/' + topicId;
+}
+
 window.toggleTopic = function(card, topicId) {
-    const wasExpanded = card.classList.contains('expanded');
-    
-    document.querySelectorAll('.topic-card.expanded').forEach(c => c.classList.remove('expanded'));
-    
-    if (!wasExpanded) {
-        card.classList.add('expanded');
-        incrementViewCount(topicId);
-    }
+    // Legacy support - now redirects to detail page
+    openTopicDetail(topicId);
 };
 
 async function incrementViewCount(topicId) {
