@@ -488,7 +488,7 @@ function openLiveChat() {
     const modal = document.getElementById('chatModal');
     if (!modal) return;
     modal.classList.add('active');
-    document.getElementById('chatMessages').innerHTML = '';
+    document.getElementById('chatMessages').innerHTML = '<div style="text-align:center;color:#999;padding:20px;">Connecting to support...</div>';
     document.getElementById('chatInput').value = '';
     document.getElementById('chatInput').disabled = true;
     document.getElementById('chatSendBtn').disabled = true;
@@ -543,11 +543,33 @@ function listenForCSRAssignment(chatId) {
 
 function renderChatMessages(messages) {
     const cm = document.getElementById('chatMessages');
-    if (!cm || !Array.isArray(messages)) return;
+    if (!cm) return;
+    
+    let messageArray = [];
+    if (Array.isArray(messages)) {
+        messageArray = messages;
+    } else if (messages && typeof messages === 'object') {
+        messageArray = Object.values(messages);
+    }
+    
+    if (messageArray.length === 0) {
+        cm.innerHTML = '<div style="text-align:center;color:#999;padding:20px;">No messages yet. Start the conversation!</div>';
+        return;
+    }
+    
     let h = '';
-    messages.forEach(msg => {
-        if (msg.sender === 'student') h += '<div class="message user"><div class="message-avatar">' + (studentInfo?.userName || 'S').charAt(0) + '</div><div><div class="message-bubble">' + msg.text + '</div><div class="message-time">' + formatTime(msg.timestamp) + '</div></div></div>';
-        else h += '<div class="message support"><div class="message-avatar">CSR</div><div><div class="message-bubble">' + msg.text + '</div><div class="message-time">' + formatTime(msg.timestamp) + '</div></div></div>';
+    messageArray.forEach(msg => {
+        if (!msg || !msg.text) return;
+        const senderInitial = (msg.sender === 'student') ? (studentInfo?.userName || 'S').charAt(0).toUpperCase() : 'C';
+        const msgClass = (msg.sender === 'student') ? 'user' : 'support';
+        const timeStr = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '';
+        
+        h += '<div class="message ' + msgClass + '">';
+        h += '<div class="message-avatar">' + senderInitial + '</div>';
+        h += '<div>';
+        h += '<div class="message-bubble">' + msg.text + '</div>';
+        h += '<div class="message-time">' + timeStr + '</div>';
+        h += '</div></div>';
     });
     cm.innerHTML = h;
     cm.scrollTop = cm.scrollHeight;
