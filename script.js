@@ -624,6 +624,10 @@ function listenForCallConnection(callId) {
         if (call.status === 'connected') {
             document.getElementById('callStatus').textContent = 'Connected with ' + (call.csrName || 'Agent');
             startCallTimer();
+            await createPeerConnection(callId);
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            await callRef.update({ offer: offer });
         } else if (call.status === 'ended') {
             endVoiceCall();
         } else if (call.status === 'waiting') {
@@ -633,17 +637,70 @@ function listenForCallConnection(callId) {
 }
 
 async function createPeerConnection(callId) {
+    if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+    }
+    
     peerConnection = new RTCPeerConnection(configuration);
-    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-    peerConnection.onicecandidate = (event) => { if (event.candidate) callQueueRef.child(callId).child('iceCandidates').child('student').push({ candidate: event.candidate.toJSON() }); };
+    
+    if (localStream) {
+        localStream.getTracks().forEach(track => {
+            peerConnection.addTrack(track, localStream);
+        });
+    }
+    
+    peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+            callQueueRef.child(callId).child('iceCandidates').child('student').push({ 
+                candidate: event.candidate.toJSON() 
+            });
+        }
+    };
+    
+    peerConnection.oniceconnectionstatechange = () => {
+        console.log('ICE connection state:', peerConnection.iceConnectionState);
+        if (peerConnection.iceConnectionState === 'disconnected' || 
+            peerConnection.iceConnectionState === 'failed') {
+            endVoiceCall();
+        }
+    };
+    
+    peerConnection.onconnectionstatechange = () => {
+        console.log('Connection state:', peerConnection.connectionState);
+        if (peerConnection.connectionState === 'disconnected' || 
+            peerConnection.connectionState === 'failed') {
+            endVoiceCall();
+        }
+    };
+    
+    peerConnection.ontrack = (event) => {
+        console.log('Remote track received');
+        const audio = new Audio();
+        audio.srcObject = event.streams[0];
+        audio.play().catch(e => console.log('Audio play requires user interaction:', e));
+    };
+    
+    callQueueRef.child(callId).child('answer').on('value', async (snapshot) => {
+        const answer = snapshot.val();
+        if (answer && peerConnection && peerConnection.signalingState === 'have-local-offer') {
+            try {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+                console.log('Remote answer set successfully');
+            } catch (e) {
+                console.error('Error setting remote answer:', e);
+            }
+        }
+    });
+    
     callQueueRef.child(callId).child('iceCandidates').child('csr').on('child_added', (snapshot) => {
         const data = snapshot.val();
-        if (data?.candidate && peerConnection) peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+        if (data && data.candidate && peerConnection) {
+            peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate))
+                .catch(e => console.error('Error adding ICE candidate:', e));
+        }
     });
-    peerConnection.onconnectionstatechange = () => { if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') endVoiceCall(); };
-    peerConnection.ontrack = (event) => { const audio = new Audio(); audio.srcObject = event.streams[0]; audio.play().catch(e => {}); };
 }
-
 function startCallTimer() { callStartTime = Date.now(); updateCallTimer(); callTimerInterval = setInterval(updateCallTimer, 1000); }
 function updateCallTimer() { const timer = document.getElementById('callTimer'); if (timer && callStartTime) { const e = Math.floor((Date.now() - callStartTime) / 1000); timer.textContent = String(Math.floor(e / 60)).padStart(2, '0') + ':' + String(e % 60).padStart(2, '0'); } }
 function toggleMute() {
