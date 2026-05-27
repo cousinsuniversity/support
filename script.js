@@ -675,10 +675,15 @@ function playBase64Audio(base64Data) {
         
         const binaryString = atob(base64Data);
         const len = binaryString.length;
-        const bytes = new Uint8Array(len);
+        let bytes = new Uint8Array(len);
         for (let i = 0; i < len; i++) {
             bytes[i] = binaryString.charCodeAt(i) & 0xFF;
         }
+        
+        if (bytes.length % 2 !== 0) {
+            bytes = bytes.slice(0, bytes.length - 1);
+        }
+        if (bytes.length < 2) return;
         
         const pcm16 = new Int16Array(bytes.buffer);
         const float32 = new Float32Array(pcm16.length);
